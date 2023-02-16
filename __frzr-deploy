@@ -58,12 +58,20 @@ get_syslinux_prefix() {
 
 create_swap() {
         local mount_path=${1}
+        local deployment_dir=${2}
         
-        if [ ! -f $mount_path/var/swapfile ] ; then
-                btrfs filesystem mkswapfile $mount_path/var/swapfile
+        if [ ! -f $mount_path/swap/swapfile ] ; then
+                btrfs filesystem mkswapfile $mount_path/swap/swapfile
+	fi
+	
+        mkdir -p $mount_path/swap
+        
+        if [ ! -f $mount_path/swap/swapfile ] ; then
+                btrfs filesystem mkswapfile $mount_path/swap/swapfile
 	fi
 
-        echo "/frzr_root/var/swapfile        none        swap        defaults      0 0" >> $mount_path/etc/fstab
+        cp ${deployment_dir}/etc/fstab $mount_path/etc/fstab
+        echo "/frzr_root/swap/swapfile        none        swap        defaults      0 0" >> $mount_path/etc/fstab
 }
 
 get_syslinux_cfg() {
@@ -294,12 +302,12 @@ main() {
 		ADDITIONAL_ARGUMENTS="$ADDITIONAL_ARGUMENTS $(cat ${SUBVOL}/usr/lib/frzr.d/bootconfig.conf)"
 	fi
 	
-        create_swap "${MOUNT_PATH}"
+        create_swap "${MOUNT_PATH}" "${SUBVOL}"
 	SWAP_ARGUMENTS=""
 	
-	if [ -e ${MOUNT_PATH}/var/swapfile ] ; then
-	        resume_offset="resume_offset=$(btrfs inspect-internal map-swapfile -r ${MOUNT_PATH}/var/swapfile)"
-	        resume="resume=UUID=$(blkid ${MOUNT_PATH}/var/swapfile | cut -d' ' -f2 | cut -d\" -f2)"
+	if [ -e ${MOUNT_PATH}/swap/swapfile ] ; then
+	        resume_offset="resume_offset=$(btrfs inspect-internal map-swapfile -r ${MOUNT_PATH}/swap/swapfile)"
+	        resume="resume=UUID=$(blkid ${MOUNT_PATH}/swap/swapfile | cut -d' ' -f2 | cut -d\" -f2)"
 		SWAP_ARGUMENTS="${resume_offset} ${resume}"
 	fi
 	
