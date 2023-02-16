@@ -59,7 +59,7 @@ get_syslinux_prefix() {
 create_swap() {
         local mount_path=${1}
         
-        if [ ! -f ${MOUNT_PATH}/var/swapfile ] ; then
+        if [ ! -f $mount_path/var/swapfile ] ; then
                 btrfs filesystem mkswapfile $mount_path/var/swapfile
 	fi
 
@@ -71,11 +71,12 @@ get_syslinux_cfg() {
 	local prefix=${2}
 	local additional_initrd=${3}
 	local additional_arguments=${4}
+	local swap=${5}
 
 echo "default ${version}
 label ${version}
 kernel ${prefix}/${version}/vmlinuz-linux
-append root=LABEL=frzr_root rw rootflags=subvol=deployments/${version} quiet splash loglevel=3 rd.systemd.show_status=auto rd.udev.log_priority=3 ${additional_arguments}
+append root=LABEL=frzr_root rw rootflags=subvol=deployments/${version} quiet splash loglevel=3 rd.systemd.show_status=auto rd.udev.log_priority=3 ${additional_arguments} ${swap}
 initrd ${additional_initrd}${prefix}/${version}/initramfs-linux.img"
 
 }
@@ -299,7 +300,7 @@ main() {
 	if [ -e ${MOUNT_PATH}/var/swapfile ] ; then
 	        resume_offset="resume_offset=$(btrfs inspect-internal map-swapfile -r ${MOUNT_PATH}/var/swapfile)"
 	        resume="resume=UUID=$(blkid ${MOUNT_PATH}/var/swapfile | cut -d' ' -f2 | cut -d\" -f2)"
-		SWAP_ARGUMENTS=${resume_offset}${resume}
+		SWAP_ARGUMENTS="${resume_offset} ${resume}"
 	fi
 	
 	get_syslinux_cfg ${NAME} ${PREFIX} "${ADDITIONAL_INITRD}" "${ADDITIONAL_ARGUMENTS}" "${SWAP_ARGUMENTS}" > ${BOOT_CFG}
