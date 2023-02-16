@@ -56,6 +56,16 @@ get_syslinux_prefix() {
 	realpath -m --relative-to=${syslinux_dir} ${base}/boot
 }
 
+create_swap() {
+        local mount_path=${1}
+        
+        if [ ! -f ${MOUNT_PATH}/var/swapfile ] ; then
+                btrfs filesystem mkswapfile $mount_path/var/swapfile
+	fi
+
+        echo "/frzr_root/var/swapfile        none        swap        defaults      0 0" >> $mount_path/etc/fstab
+}
+
 get_syslinux_cfg() {
 	local version=${1}
 	local prefix=${2}
@@ -282,8 +292,17 @@ main() {
 	if [ -e ${SUBVOL}/usr/lib/frzr.d/bootconfig.conf ] ; then
 		ADDITIONAL_ARGUMENTS="$ADDITIONAL_ARGUMENTS $(cat ${SUBVOL}/usr/lib/frzr.d/bootconfig.conf)"
 	fi
-
-	get_syslinux_cfg ${NAME} ${PREFIX} "${ADDITIONAL_INITRD}" "${ADDITIONAL_ARGUMENTS}" > ${BOOT_CFG}
+	
+        create_swap "${MOUNT_PATH}"
+	SWAP_ARGUMENTS=""
+	
+	if [ -e ${MOUNT_PATH}/var/swapfile ] ; then
+	        resume_offset="resume_offset=$(btrfs inspect-internal map-swapfile -r ${MOUNT_PATH}/var/swapfile)"
+	        resume="resume=UUID=$(blkid ${MOUNT_PATH}/var/swapfile | cut -d' ' -f2 | cut -d\" -f2)"
+		SWAP_ARGUMENTS=${resume_offset}${resume}
+	fi
+	
+	get_syslinux_cfg ${NAME} ${PREFIX} "${ADDITIONAL_INITRD}" "${ADDITIONAL_ARGUMENTS}" "${SWAP_ARGUMENTS}" > ${BOOT_CFG}
 
 	rm -f ${MOUNT_PATH}/*.img.*
 
